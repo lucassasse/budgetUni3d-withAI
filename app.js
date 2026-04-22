@@ -24,7 +24,7 @@ function criarNovoEstado() {
         createdAt: new Date().toISOString(),
         client:    { nome: '', whatsapp: '' },
         items:     [],
-        desconto:  { ativo: false, tipo: 'porcentagem', valor: 0 }
+        desconto:  { ativo: true, tipo: 'porcentagem', valor: 0 }
     };
 }
 
@@ -39,21 +39,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function precarregarLogo() {
-    const el = document.getElementById('logo-img');
-    if (!el) return;
-    const converter = () => {
-        if (!el.naturalWidth) return;
-        try {
-            const c = document.createElement('canvas');
-            c.width  = el.naturalWidth;
-            c.height = el.naturalHeight;
-            c.getContext('2d').drawImage(el, 0, 0);
-            _logoDataUrl = c.toDataURL('image/png');
-            _logoRatio   = el.naturalWidth / el.naturalHeight;
-        } catch (_) { /* sem acesso canvas: PDF usará só texto */ }
-    };
-    if (el.complete && el.naturalWidth > 0) converter();
-    else el.addEventListener('load', converter, { once: true });
+    fetch('logo-sem-fundo.png')
+        .then(r => r.blob())
+        .then(blob => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload  = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        }))
+        .then(dataUrl => {
+            _logoDataUrl = dataUrl;
+            const img = new Image();
+            img.onload = () => { _logoRatio = img.naturalWidth / img.naturalHeight; };
+            img.src = dataUrl;
+        })
+        .catch(() => { /* imagem indisponível: PDF usará texto */ });
 }
 
 // ============================================================
@@ -64,7 +64,8 @@ function carregarEstado() {
         const salvo = localStorage.getItem(STORAGE_KEY);
         if (salvo) {
             state = JSON.parse(salvo);
-            if (!state.desconto) state.desconto = { ativo: false, tipo: 'porcentagem', valor: 0 };
+            if (!state.desconto) state.desconto = { ativo: true, tipo: 'porcentagem', valor: 0 };
+            state.desconto.ativo = true;
         }
     } catch (e) {
         console.warn('Não foi possível carregar dados salvos:', e);
@@ -126,7 +127,6 @@ function vincularEventos() {
     });
 
     // Desconto
-    document.getElementById('desconto-ativo').addEventListener('change', handleDescontoAtivo);
     document.querySelectorAll('input[name="desconto-tipo"]').forEach(r => r.addEventListener('change', handleDescontoTipo));
     document.getElementById('desconto-valor').addEventListener('input', handleDescontoValor);
 
@@ -405,7 +405,7 @@ function exportarPDF() {
     const descontoValor = calcularDesconto(subtotal);
     const total         = subtotal - descontoValor;
 
-    if (state.desconto.ativo && descontoValor > 0) {
+    if (descontoValor > 0) {
         const labelDesc = state.desconto.tipo === 'porcentagem'
             ? `Desconto (${state.desconto.valor}%):`
             : 'Desconto:';
@@ -421,26 +421,26 @@ function exportarPDF() {
         doc.setFont('helvetica', 'normal');
         doc.text(labelDesc, pageW - mR - 58, y + 11);
         doc.setFont('helvetica', 'bold');
-        doc.text(`−${formatarPreco(descontoValor)}`, pageW - mR, y + 11, { align: 'right' });
+        doc.text(`-${formatarPreco(descontoValor)}`, pageW - mR, y + 11, { align: 'right' });
 
         y += 16;
     }
 
-    const boxW  = 52;
-    const boxH  = 12;
+    const boxW  = 38;
+    const boxH  = 9;
     const boxX  = pageW - mR - boxW;
 
     doc.setTextColor(11, 60, 93);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.text('VALOR TOTAL', mL, y + boxH / 2 + 1.5);
+    doc.setFontSize(8);
+    doc.text('VALOR TOTAL', boxX - 113, y + boxH / 2 + 1.5, { align: 'right' });
 
     doc.setFillColor(255, 106, 0);
-    doc.roundedRect(boxX, y, boxW, boxH, 2.5, 2.5, 'F');
+    doc.roundedRect(boxX, y, boxW, boxH, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text(formatarPreco(total), boxX + boxW / 2, y + boxH / 2 + 2, { align: 'center' });
+    doc.setFontSize(9.5);
+    doc.text(formatarPreco(total), boxX + boxW / 2, y + boxH / 2 + 1.2, { align: 'center' });
 
     // ── RODAPÉ (fixo no final da página) ──────────────────────
     doc.setTextColor(160, 174, 192);
@@ -453,7 +453,7 @@ function exportarPDF() {
     );
 
     // ── VALIDADE (logo acima do rodapé, posição fixa) ─────────
-    const validY = pageH - 22;
+    const validY = pageH - 26;
     doc.setFillColor(255, 248, 208);    // dourado claro
     doc.roundedRect(mL, validY, cW, 10, 2.5, 2.5, 'F');
     doc.setDrawColor(255, 195, 0);      // dourado
@@ -559,30 +559,23 @@ function atualizarResumo() {
     const descontoValor = calcularDesconto(subtotal);
     const total         = subtotal - descontoValor;
 
-    document.getElementById('summary-client').textContent = state.client.nome || '—';
+    const nome = state.client.nome;
+    document.getElementById('summary-client').textContent = nome
+        ? (nome.length > 15 ? nome.slice(0, 15) + '…' : nome)
+        : '—';
     document.getElementById('summary-count').textContent  = state.items.length;
     document.getElementById('summary-total').textContent  = formatarPreco(total);
 
-    const subtotalRow  = document.getElementById('summary-subtotal-row');
-    const descontoRow  = document.getElementById('summary-desconto-row');
-
-    if (state.desconto.ativo && descontoValor > 0) {
-        subtotalRow.classList.remove('hidden');
-        descontoRow.classList.remove('hidden');
-        document.getElementById('summary-subtotal').textContent = formatarPreco(subtotal);
-        document.getElementById('summary-desconto').textContent = state.desconto.tipo === 'porcentagem'
+    document.getElementById('summary-subtotal').textContent = formatarPreco(subtotal);
+    document.getElementById('summary-desconto').textContent = descontoValor > 0
+        ? (state.desconto.tipo === 'porcentagem'
             ? `−${state.desconto.valor}% (${formatarPreco(descontoValor)})`
-            : `−${formatarPreco(descontoValor)}`;
-    } else {
-        subtotalRow.classList.add('hidden');
-        descontoRow.classList.add('hidden');
-    }
+            : `−${formatarPreco(descontoValor)}`)
+        : '—';
 }
 
 function sincronizarDesconto() {
     const d = state.desconto;
-    document.getElementById('desconto-ativo').checked = d.ativo;
-    document.getElementById('desconto-opcoes').classList.toggle('hidden', !d.ativo);
     document.getElementById('desconto-tipo-pct').checked  = d.tipo === 'porcentagem';
     document.getElementById('desconto-tipo-fixo').checked = d.tipo === 'fixo';
     const input = document.getElementById('desconto-valor');
@@ -598,16 +591,6 @@ function sincronizarDesconto() {
     }
 }
 
-function handleDescontoAtivo(e) {
-    state.desconto.ativo = e.target.checked;
-    document.getElementById('desconto-opcoes').classList.toggle('hidden', !e.target.checked);
-    if (!e.target.checked) {
-        state.desconto.valor = 0;
-        document.getElementById('desconto-valor').value = '';
-    }
-    salvarEstado();
-    atualizarResumo();
-}
 
 function handleDescontoTipo(e) {
     state.desconto.tipo  = e.target.value;

@@ -61,7 +61,7 @@ body {
 .header {
     background: linear-gradient(135deg, #0B3C5D 0%, #072A42 100%);
     color: #fff;
-    padding: 10px 24px;
+    padding: 2px 24px;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -70,7 +70,7 @@ body {
 }
 
 .header-inner {
-    max-width: 1180px;
+    max-width: 1440px;
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -160,7 +160,7 @@ body {
    LAYOUT PRINCIPAL
    ============================================================ */
 .main {
-    max-width: 1180px;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 24px 16px 40px;
     display: flex;
@@ -177,8 +177,19 @@ body {
 
 .right-panel {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 20px;
+    align-items: start;
+}
+
+.items-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.summary-section {
+    width: 290px;
+    flex-shrink: 0;
 }
 
 /* ============================================================
@@ -582,6 +593,7 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 
 .budget-actions {
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
@@ -685,20 +697,56 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 .desconto-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-secondary);
     user-select: none;
+    white-space: nowrap;
 }
 
 .desconto-toggle input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent);
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    background: #b0c4d8;
+    border-radius: 12px;
+    position: relative;
     cursor: pointer;
     flex-shrink: 0;
+    vertical-align: middle;
+    transition: background 0.2s ease;
+    outline: none;
+}
+
+.desconto-toggle input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    transition: left 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.desconto-toggle input[type="checkbox"]:checked {
+    background: var(--orange);
+}
+
+.desconto-toggle input[type="checkbox"]:checked::after {
+    left: 21px;
+    transform: translateY(-50%);
+}
+
+.desconto-toggle:has(input:checked) {
+    color: var(--text);
 }
 
 .desconto-opcoes {
@@ -713,26 +761,41 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 
 .desconto-tipo {
     display: flex;
-    gap: 16px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .radio-label {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     cursor: pointer;
-    font-size: 0.83rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
     user-select: none;
+    padding: 5px 8px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 }
 
 .radio-label input[type="radio"] {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--accent);
-    cursor: pointer;
-    flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .desconto-valor-wrap {
@@ -806,6 +869,8 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
    ============================================================ */
 @media (max-width: 860px) {
     .content-grid { grid-template-columns: 1fr; }
+    .right-panel { flex-direction: column; }
+    .summary-section { width: 100%; }
     .items-list { max-height: none; }
 }
 
