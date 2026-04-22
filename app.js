@@ -319,6 +319,8 @@ function limparDados() {
 }
 
 function limparOrcamento() {
+    const subtotal = state.items.reduce((s, i) => s + i.preco, 0);
+    if (subtotal === 0) removerDoHistorico(state.budgetId);
     state = criarNovoEstado();
     salvarEstado();
     resetarFormulario();
