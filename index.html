@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uni3D — Sistema de Orçamentos</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- jsPDF + AutoTable para exportação em PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+    <!-- ===================== HEADER ===================== -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo-area">
+                <!-- Coloque sua logo como "logo-sem-fundo.png" na mesma pasta deste arquivo -->
+                <img src="logo-sem-fundo.png" alt="Logo Uni3D" class="logo" id="logo-img" onerror="this.style.display='none'">
+                <div class="brand">
+                    <h1 class="brand-name">Uni3D</h1>
+                    <span class="brand-sub">Impressão 3D</span>
+                </div>
+            </div>
+            <div class="budget-id-area">
+                <span class="budget-label">Orçamento</span>
+                <div class="budget-code-wrap">
+                    <span class="budget-code" id="budget-code">#UNI-000000</span>
+                    <button class="btn-copy" id="copy-code-btn" title="Copiar código">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================== MAIN ===================== -->
+    <main class="main">
+
+        <!-- DADOS DO CLIENTE -->
+        <section class="card client-section">
+            <h2 class="section-title">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                Dados do Cliente
+            </h2>
+            <div class="form-row two-col">
+                <div class="form-group">
+                    <label for="client-name">Nome <span class="required">*</span></label>
+                    <input type="text" id="client-name" placeholder="Nome completo do cliente" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="client-whatsapp">WhatsApp <span class="optional">(opcional)</span></label>
+                    <input type="tel" id="client-whatsapp" placeholder="(00) 00000-0000" maxlength="16" inputmode="numeric">
+                </div>
+            </div>
+        </section>
+
+        <!-- GRID PRINCIPAL: Formulário | Lista + Resumo -->
+        <div class="content-grid">
+
+            <!-- FORMULÁRIO DE ITEM -->
+            <section class="card form-section">
+                <h2 class="section-title">
+                    <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    <span id="form-title">Adicionar Item</span>
+                </h2>
+                <form id="item-form" novalidate>
+                    <div class="form-group">
+                        <label for="item-produto">Produto <span class="required">*</span></label>
+                        <input type="text" id="item-produto" placeholder="Ex: Suporte para parede, Miniatura..." autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-material">Material <span class="required">*</span></label>
+                        <div class="select-wrap">
+                            <select id="item-material">
+                                <option value="">Selecione o material...</option>
+                                <option value="PLA">PLA</option>
+                                <option value="ABS">ABS</option>
+                                <option value="PETG">PETG</option>
+                                <option value="TPU">TPU</option>
+                                <option value="ASA">ASA</option>
+                                <option value="Resina">Resina</option>
+                                <option value="Outro">Outro...</option>
+                            </select>
+                            <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="form-group hidden" id="material-outro-group">
+                        <label for="item-material-outro">Especifique o material <span class="required">*</span></label>
+                        <input type="text" id="item-material-outro" placeholder="Ex: Nylon, PVA, HIPS...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-cor">Cor <span class="required">*</span></label>
+                        <input type="text" id="item-cor" placeholder="Ex: Branco, Preto, Azul royal..." autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-preco">Preço <span class="required">*</span></label>
+                        <input type="text" id="item-preco" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off">
+                    </div>
+
+                    <!-- ID do item em edição (oculto) -->
+                    <input type="hidden" id="edit-id">
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="submit-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            Adicionar Item
+                        </button>
+                        <button type="button" class="btn btn-ghost hidden" id="cancel-edit-btn">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- PAINEL DIREITO -->
+            <div class="right-panel">
+
+                <!-- LISTA DE ITENS -->
+                <section class="card items-section">
+                    <h2 class="section-title">
+                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                        </svg>
+                        Itens do Orçamento
+                        <span class="item-count-badge" id="item-count-badge">0</span>
+                    </h2>
+                    <div class="items-list" id="items-list">
+                        <!-- Itens renderizados pelo JS -->
+                    </div>
+                </section>
+
+                <!-- RESUMO DO ORÇAMENTO -->
+                <section class="card summary-section">
+                    <h2 class="section-title">
+                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                        Resumo
+                    </h2>
+
+                    <div class="summary-rows">
+                        <div class="summary-row">
+                            <span class="summary-label">Código</span>
+                            <strong class="summary-value mono" id="summary-code">#UNI-000000</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Cliente</span>
+                            <strong class="summary-value" id="summary-client">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Itens</span>
+                            <strong class="summary-value" id="summary-count">0</strong>
+                        </div>
+                        <div class="summary-row summary-total-row">
+                            <span class="summary-label">Total</span>
+                            <strong class="summary-value summary-total-value" id="summary-total">R$ 0,00</strong>
+                        </div>
+                    </div>
+
+                    <div class="validity-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Este orçamento é válido por 7 dias.
+                    </div>
+
+                    <div class="budget-actions">
+                        <button class="btn btn-success" id="export-pdf-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>
+                            </svg>
+                            Exportar PDF
+                        </button>
+                        <button class="btn btn-danger" id="clear-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                            </svg>
+                            Limpar
+                        </button>
+                    </div>
+                </section>
+
+            </div><!-- /right-panel -->
+        </div><!-- /content-grid -->
+    </main>
+
+    <!-- ===================== TOAST ===================== -->
+    <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+    <!-- ===================== MODAL ===================== -->
+    <div class="modal-overlay hidden" id="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal">
+            <div class="modal-icon" id="modal-icon">⚠️</div>
+            <h3 class="modal-title" id="modal-title">Confirmar</h3>
+            <p class="modal-message" id="modal-message"></p>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+                <button class="btn btn-danger" id="modal-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
