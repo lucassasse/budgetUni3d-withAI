@@ -144,12 +144,22 @@ function vincularEventos() {
         renderizarLista(e.target.value.trim());
     });
 
-    // Limpar orçamento
+    // Limpar dados (mantém o código do orçamento)
+    document.getElementById('clear-data-btn').addEventListener('click', () => {
+        mostrarModal(
+            '⚠️',
+            'Limpar Dados',
+            'Limpar cliente, itens e desconto? O código do orçamento será mantido.',
+            limparDados
+        );
+    });
+
+    // Novo orçamento (gera novo código)
     document.getElementById('clear-btn').addEventListener('click', () => {
         mostrarModal(
             '⚠️',
-            'Limpar Orçamento',
-            'Tem certeza? Todos os dados do cliente e itens serão removidos e um novo orçamento será criado.',
+            'Novo Orçamento',
+            'Criar um novo orçamento? Todos os dados atuais serão removidos e um novo código será gerado.',
             limparOrcamento
         );
     });
@@ -183,6 +193,8 @@ function handleFormSubmit(e) {
     const produto   = document.getElementById('item-produto').value.trim();
     const materiais = coletarMateriais();
     const cor       = document.getElementById('item-cor').value.trim();
+    const tamanhoRaw = document.getElementById('item-tamanho').value;
+    const tamanho   = tamanhoRaw !== '' ? parseFloat(tamanhoRaw) : null;
     const precoRaw  = document.getElementById('item-preco').value;
     const preco     = parsearPreco(precoRaw);
     const editId    = document.getElementById('edit-id').value;
@@ -192,6 +204,7 @@ function handleFormSubmit(e) {
     if (!produto)            erros.push('Produto é obrigatório.');
     if (materiais.length === 0) erros.push('Selecione pelo menos um material.');
     if (!cor)                erros.push('Cor é obrigatória.');
+    if (tamanho !== null && (isNaN(tamanho) || tamanho < 0)) erros.push('Tamanho inválido.');
     if (preco <= 0)          erros.push('Informe um preço válido.');
 
     if (erros.length > 0) {
@@ -203,12 +216,12 @@ function handleFormSubmit(e) {
         // Atualizar item existente
         const idx = state.items.findIndex(i => i.id === editId);
         if (idx !== -1) {
-            state.items[idx] = { ...state.items[idx], produto, materiais, cor, preco };
+            state.items[idx] = { ...state.items[idx], produto, materiais, cor, tamanho, preco };
         }
         mostrarToast('Item atualizado com sucesso!', 'success');
     } else {
         // Novo item
-        state.items.push({ id: gerarIdItem(), produto, materiais, cor, preco });
+        state.items.push({ id: gerarIdItem(), produto, materiais, cor, tamanho, preco });
         mostrarToast('Item adicionado!', 'success');
     }
 
@@ -245,10 +258,11 @@ function editarItem(id) {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
 
-    document.getElementById('edit-id').value  = item.id;
-    document.getElementById('item-produto').value = item.produto;
-    document.getElementById('item-cor').value     = item.cor;
-    document.getElementById('item-preco').value   = formatarPreco(item.preco);
+    document.getElementById('edit-id').value       = item.id;
+    document.getElementById('item-produto').value  = item.produto;
+    document.getElementById('item-cor').value      = item.cor;
+    document.getElementById('item-tamanho').value  = item.tamanho != null ? item.tamanho : '';
+    document.getElementById('item-preco').value    = formatarPreco(item.preco);
 
     // Preenche materiais
     preencherMateriais(getMateriais(item));
@@ -292,6 +306,18 @@ function excluirItem(id) {
 // ============================================================
 // LIMPAR ORÇAMENTO
 // ============================================================
+function limparDados() {
+    state.client   = { nome: '', whatsapp: '' };
+    state.items    = [];
+    state.desconto = { ativo: true, tipo: 'porcentagem', valor: 0 };
+    salvarEstado();
+    resetarFormulario();
+    document.getElementById('client-name').value     = '';
+    document.getElementById('client-whatsapp').value = '';
+    renderizar();
+    mostrarToast('Dados limpos. Código do orçamento mantido.', 'info');
+}
+
 function limparOrcamento() {
     state = criarNovoEstado();
     salvarEstado();
@@ -407,12 +433,13 @@ function gerarPDF(budget) {
         item.produto,
         getMateriais(item).join(' + '),
         item.cor,
+        item.tamanho != null ? item.tamanho + ' cm' : '—',
         formatarPreco(item.preco)
     ]);
 
     doc.autoTable({
         startY: y,
-        head: [['#', 'Produto', 'Material', 'Cor', 'Preço']],
+        head: [['#', 'Produto', 'Material', 'Cor', 'Tamanho', 'Preço']],
         body: linhas,
         margin: { left: mL, right: mR },
         styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
@@ -426,8 +453,9 @@ function gerarPDF(budget) {
         columnStyles: {
             0: { cellWidth: 9,  halign: 'center', fontStyle: 'bold' },
             2: { cellWidth: 22 },
-            3: { cellWidth: 24 },
-            4: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
+            3: { cellWidth: 22 },
+            4: { cellWidth: 20, halign: 'center' },
+            5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
         }
     });
 
@@ -556,6 +584,7 @@ function renderizarItens() {
                 <div class="item-tags">
                     ${getMateriais(item).map(m => `<span class="tag">${escapeHtml(m)}</span>`).join('')}
                     <span class="tag tag-cor">${escapeHtml(item.cor)}</span>
+                    ${item.tamanho != null ? `<span class="tag tag-tamanho">${item.tamanho} cm</span>` : ''}
                 </div>
                 <div class="item-price">${formatarPreco(item.preco)}</div>
             </div>

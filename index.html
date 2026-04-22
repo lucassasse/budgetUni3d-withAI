@@ -77,10 +77,16 @@
                         <div id="materiais-container"></div>
                     </div>
 
+
                     <div class="form-group">
                         <label for="item-cor">Cor <span class="required">*</span></label>
-                        <input type="text" id="item-cor" placeholder="Ex: Branco, Preto, Azul royal..." autocomplete="off">
+                        <input type="text" id="item-cor" placeholder="Ex: Branco, Preto..." autocomplete="off">
                     </div>
+                        
+                    <div class="form-group">
+                            <label for="item-tamanho">Tamanho <span class="optional">(cm)</span></label>
+                            <input type="number" id="item-tamanho" placeholder="0" min="0" step="0.1" inputmode="decimal" autocomplete="off">
+                        </div>
 
                     <div class="form-group">
                         <label for="item-preco">Preço <span class="required">*</span></label>
@@ -184,11 +190,18 @@
                             </svg>
                             Exportar PDF
                         </button>
-                        <button class="btn btn-danger" id="clear-btn">
+                        <button class="btn btn-warning" id="clear-data-btn">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                                <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                                <path d="M10 11v4"/><path d="M14 11v4"/>
                             </svg>
                             Limpar
+                        </button>
+                        <button class="btn btn-danger" id="clear-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            Novo orçamento
                         </button>
                         <button class="btn btn-ghost" id="listar-btn">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

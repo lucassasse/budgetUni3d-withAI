@@ -354,6 +354,16 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
     box-shadow: 0 4px 14px rgba(47, 164, 231, 0.4);
 }
 
+/* Dourado — Limpar dados */
+.btn-warning {
+    background: var(--gold);
+    color: var(--gold-text);
+}
+.btn-warning:hover {
+    background: #e6b000;
+    box-shadow: 0 4px 14px rgba(255, 195, 0, 0.4);
+}
+
 /* Vermelho — Limpar / Excluir */
 .btn-danger {
     background: var(--danger);
@@ -520,6 +530,12 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 .tag-cor {
     background: var(--gold-light);
     color: var(--gold-text);
+}
+
+/* Tag tamanho — verde suave */
+.tag-tamanho {
+    background: #DCFCE7;
+    color: #166534;
 }
 
 /* Preço — azul escuro */
