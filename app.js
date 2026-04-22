@@ -8,7 +8,8 @@
 // ============================================================
 // CONSTANTES & ESTADO GLOBAL
 // ============================================================
-const STORAGE_KEY = 'uni3d_orcamento';
+const STORAGE_KEY   = 'uni3d_orcamento';
+const HISTORICO_KEY = 'uni3d_historicos';
 const MATERIAIS_CONHECIDOS = ['PLA', 'ABS', 'PETG', 'TPU', 'ASA', 'Resina'];
 
 /** @type {{ budgetId: string, createdAt: string, client: {nome: string, whatsapp: string}, items: Array }} */
@@ -74,6 +75,23 @@ function carregarEstado() {
 
 function salvarEstado() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const historico = carregarHistorico();
+    historico[state.budgetId] = state;
+    localStorage.setItem(HISTORICO_KEY, JSON.stringify(historico));
+}
+
+function carregarHistorico() {
+    try {
+        const raw = localStorage.getItem(HISTORICO_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) { /* */ }
+    return {};
+}
+
+function removerDoHistorico(budgetId) {
+    const historico = carregarHistorico();
+    delete historico[budgetId];
+    localStorage.setItem(HISTORICO_KEY, JSON.stringify(historico));
 }
 
 // ============================================================
@@ -116,6 +134,16 @@ function vincularEventos() {
     // Exportar PDF
     document.getElementById('export-pdf-btn').addEventListener('click', exportarPDF);
 
+    // Listar orçamentos
+    document.getElementById('listar-btn').addEventListener('click', abrirListaModal);
+    document.getElementById('lista-close-btn').addEventListener('click', fecharListaModal);
+    document.getElementById('lista-overlay').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) fecharListaModal();
+    });
+    document.getElementById('lista-search').addEventListener('input', (e) => {
+        renderizarLista(e.target.value.trim());
+    });
+
     // Limpar orçamento
     document.getElementById('clear-btn').addEventListener('click', () => {
         mostrarModal(
@@ -138,7 +166,10 @@ function vincularEventos() {
         if (e.target === e.currentTarget) fecharModal();
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') fecharModal();
+        if (e.key === 'Escape') {
+            fecharModal();
+            fecharListaModal();
+        }
     });
 }
 
@@ -287,16 +318,20 @@ function copiarCodigo() {
 // EXPORTAR PDF
 // ============================================================
 function exportarPDF() {
+    gerarPDF(state);
+}
+
+function gerarPDF(budget) {
     if (!window.jspdf) {
         mostrarToast('Biblioteca PDF não carregada. Verifique sua conexão.', 'error');
         return;
     }
-    if (state.items.length === 0) {
-        mostrarToast('Adicione pelo menos um item antes de exportar.', 'error');
+    if (!budget.items || budget.items.length === 0) {
+        mostrarToast('O orçamento não possui itens para exportar.', 'error');
         return;
     }
-    if (!state.client.nome.trim()) {
-        mostrarToast('Preencha o nome do cliente antes de exportar.', 'error');
+    if (!budget.client || !budget.client.nome.trim()) {
+        mostrarToast('O orçamento não possui nome de cliente.', 'error');
         return;
     }
 
@@ -308,12 +343,11 @@ function exportarPDF() {
     const cW = pageW - mL - mR;
 
     // ── CABEÇALHO (fundo gradiente simulado) ──────────────────
-    doc.setFillColor(11, 60, 93);       // azul escuro
+    doc.setFillColor(11, 60, 93);
     doc.rect(0, 0, pageW, 42, 'F');
-    doc.setFillColor(47, 164, 231);     // azul claro (triângulo accent)
+    doc.setFillColor(47, 164, 231);
     doc.triangle(pageW - 60, 0, pageW, 0, pageW, 42, 'F');
 
-    // Logo (usa base64 pré-carregado em precarregarLogo)
     if (_logoDataUrl) {
         const logoH = 34;
         const logoW = logoH * _logoRatio;
@@ -323,27 +357,26 @@ function exportarPDF() {
         _renderNomeHeader(doc, mL);
     }
 
-    // Código e data no lado direito
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.text('ORÇAMENTO', pageW - mR, 14, { align: 'right' });
     doc.setFontSize(13);
-    doc.text('#' + state.budgetId, pageW - mR, 22, { align: 'right' });
+    doc.text('#' + budget.budgetId, pageW - mR, 22, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    const dtCriacao = new Date(state.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const dtCriacao = new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     doc.text('Data: ' + dtCriacao, pageW - mR, 29, { align: 'right' });
 
     let y = 52;
 
     // ── DADOS DO CLIENTE ─────────────────────────────────────
-    doc.setFillColor(208, 235, 250);    // azul claro light
-    doc.roundedRect(mL, y, cW, state.client.whatsapp ? 26 : 18, 3, 3, 'F');
-    doc.setDrawColor(47, 164, 231);     // azul claro
-    doc.roundedRect(mL, y, cW, state.client.whatsapp ? 26 : 18, 3, 3, 'S');
+    doc.setFillColor(208, 235, 250);
+    doc.roundedRect(mL, y, cW, budget.client.whatsapp ? 26 : 18, 3, 3, 'F');
+    doc.setDrawColor(47, 164, 231);
+    doc.roundedRect(mL, y, cW, budget.client.whatsapp ? 26 : 18, 3, 3, 'S');
 
-    doc.setTextColor(11, 60, 93);       // azul escuro
+    doc.setTextColor(11, 60, 93);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.text('DADOS DO CLIENTE', mL + 6, y + 6);
@@ -351,25 +384,25 @@ function exportarPDF() {
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(state.client.nome, mL + 6, y + 13);
+    doc.text(budget.client.nome, mL + 6, y + 13);
 
-    if (state.client.whatsapp) {
+    if (budget.client.whatsapp) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(71, 85, 105);
-        doc.text('WhatsApp: ' + state.client.whatsapp, mL + 6, y + 20);
+        doc.text('WhatsApp: ' + budget.client.whatsapp, mL + 6, y + 20);
     }
 
-    y += (state.client.whatsapp ? 26 : 18) + 10;
+    y += (budget.client.whatsapp ? 26 : 18) + 10;
 
     // ── TABELA DE ITENS ───────────────────────────────────────
-    doc.setTextColor(11, 60, 93);       // azul escuro
+    doc.setTextColor(11, 60, 93);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text('ITENS DO ORÇAMENTO', mL, y);
     y += 4;
 
-    const linhas = state.items.map((item, idx) => [
+    const linhas = budget.items.map((item, idx) => [
         (idx + 1).toString(),
         item.produto,
         getMateriais(item).join(' + '),
@@ -384,30 +417,30 @@ function exportarPDF() {
         margin: { left: mL, right: mR },
         styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
         headStyles: {
-            fillColor: [11, 60, 93],    // azul escuro
+            fillColor: [11, 60, 93],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
             fontSize: 8.5
         },
-        alternateRowStyles: { fillColor: [240, 249, 255] }, // azul claro light
+        alternateRowStyles: { fillColor: [240, 249, 255] },
         columnStyles: {
             0: { cellWidth: 9,  halign: 'center', fontStyle: 'bold' },
             2: { cellWidth: 22 },
             3: { cellWidth: 24 },
-            4: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] } // azul escuro
+            4: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
         }
     });
 
     y = doc.lastAutoTable.finalY + 6;
 
     // ── DESCONTO + TOTAL ──────────────────────────────────────
-    const subtotal      = state.items.reduce((s, i) => s + i.preco, 0);
-    const descontoValor = calcularDesconto(subtotal);
+    const subtotal      = budget.items.reduce((s, i) => s + i.preco, 0);
+    const descontoValor = calcularDescontoEm(budget, subtotal);
     const total         = subtotal - descontoValor;
 
     if (descontoValor > 0) {
-        const labelDesc = state.desconto.tipo === 'porcentagem'
-            ? `Desconto (${state.desconto.valor}%):`
+        const labelDesc = budget.desconto.tipo === 'porcentagem'
+            ? `Desconto (${budget.desconto.valor}%):`
             : 'Desconto:';
 
         doc.setTextColor(71, 85, 105);
@@ -426,9 +459,7 @@ function exportarPDF() {
         y += 16;
     }
 
-    const boxW  = 38;
-    const boxH  = 9;
-    const boxX  = pageW - mR - boxW;
+    const boxW = 38, boxH = 9, boxX = pageW - mR - boxW;
 
     doc.setTextColor(11, 60, 93);
     doc.setFont('helvetica', 'bold');
@@ -442,30 +473,29 @@ function exportarPDF() {
     doc.setFontSize(9.5);
     doc.text(formatarPreco(total), boxX + boxW / 2, y + boxH / 2 + 1.2, { align: 'center' });
 
-    // ── RODAPÉ (fixo no final da página) ──────────────────────
+    // ── RODAPÉ ───────────────────────────────────────────────
     doc.setTextColor(160, 174, 192);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.text('Uni3D — Impressão 3D', pageW / 2, pageH - 9, { align: 'center' });
     doc.text(
-        `Orçamento #${state.budgetId} · Gerado em ${new Date().toLocaleString('pt-BR')}`,
+        `Orçamento #${budget.budgetId} · Gerado em ${new Date().toLocaleString('pt-BR')}`,
         pageW / 2, pageH - 5, { align: 'center' }
     );
 
-    // ── VALIDADE (logo acima do rodapé, posição fixa) ─────────
+    // ── VALIDADE ──────────────────────────────────────────────
     const validY = pageH - 26;
-    doc.setFillColor(255, 248, 208);    // dourado claro
+    doc.setFillColor(255, 248, 208);
     doc.roundedRect(mL, validY, cW, 10, 2.5, 2.5, 'F');
-    doc.setDrawColor(255, 195, 0);      // dourado
+    doc.setDrawColor(255, 195, 0);
     doc.setLineWidth(0.5);
     doc.roundedRect(mL, validY, cW, 10, 2.5, 2.5, 'S');
-    doc.setTextColor(122, 80, 0);       // dourado escuro
+    doc.setTextColor(122, 80, 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.text('Este orçamento é válido por 7 dias.', pageW / 2, validY + 6.8, { align: 'center' });
 
-    // ── SALVA O PDF ───────────────────────────────────────────
-    const nomeArq = sanitizarNomeArquivo(state.client.nome) + '_' + state.budgetId + '.pdf';
+    const nomeArq = sanitizarNomeArquivo(budget.client.nome) + '_' + budget.budgetId + '.pdf';
     doc.save(nomeArq);
     mostrarToast('PDF gerado: ' + nomeArq, 'success');
 }
@@ -748,6 +778,135 @@ function getMateriais(item) {
     if (Array.isArray(item.materiais) && item.materiais.length) return item.materiais;
     if (item.material) return [item.material];
     return [];
+}
+
+// ============================================================
+// MODAL — LISTA DE ORÇAMENTOS
+// ============================================================
+function abrirListaModal() {
+    document.getElementById('lista-overlay').classList.remove('hidden');
+    document.getElementById('lista-search').value = '';
+    renderizarLista('');
+}
+
+function fecharListaModal() {
+    document.getElementById('lista-overlay').classList.add('hidden');
+}
+
+function renderizarLista(filtro) {
+    const historico = carregarHistorico();
+    const termo = filtro.toLowerCase();
+
+    const ids = Object.keys(historico)
+        .filter(id => {
+            if (!termo) return true;
+            const b = historico[id];
+            return id.toLowerCase().includes(termo) ||
+                   (b.client && b.client.nome && b.client.nome.toLowerCase().includes(termo));
+        })
+        .sort((a, b) => {
+            const dtA = historico[a].createdAt || '';
+            const dtB = historico[b].createdAt || '';
+            return dtB.localeCompare(dtA);
+        });
+
+    document.getElementById('lista-badge').textContent = Object.keys(historico).length;
+
+    const body = document.getElementById('lista-body');
+
+    if (ids.length === 0) {
+        body.innerHTML = `<p class="lista-empty">${termo ? 'Nenhum resultado para "' + escapeHtml(filtro) + '".' : 'Nenhum orçamento salvo ainda.'}</p>`;
+        return;
+    }
+
+    body.innerHTML = ids.map(id => {
+        const b       = historico[id];
+        const subtotal = (b.items || []).reduce((s, i) => s + i.preco, 0);
+        const total    = subtotal - calcularDescontoEm(b, subtotal);
+        const isAtivo  = b.budgetId === state.budgetId;
+        const dtStr    = b.createdAt
+            ? new Date(b.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '—';
+        const nItens   = (b.items || []).length;
+
+        return `
+        <div class="lista-item${isAtivo ? ' lista-item-ativo' : ''}">
+            <div class="lista-item-main">
+                <div class="lista-item-code">
+                    ${escapeHtml(b.budgetId)}
+                    ${isAtivo ? '<span class="lista-tag-ativo">atual</span>' : ''}
+                </div>
+                <div class="lista-item-info">
+                    <span class="lista-item-cliente">${b.client && b.client.nome ? escapeHtml(b.client.nome) : '—'}</span>
+                    <span class="lista-item-meta">${nItens} iten${nItens !== 1 ? 's' : ''} · ${dtStr}</span>
+                </div>
+                <div class="lista-item-total">${formatarPreco(total)}</div>
+            </div>
+            <div class="lista-item-actions">
+                <button class="lista-action-btn lista-btn-pdf" onclick="gerarPDF(carregarHistorico()['${escapeHtml(b.budgetId)}'])" title="Gerar PDF">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                        <line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>
+                    </svg>
+                    PDF
+                </button>
+                ${!isAtivo ? `
+                <button class="lista-action-btn lista-btn-edit" onclick="editarOrcamentoLista('${escapeHtml(b.budgetId)}')" title="Carregar para edição">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Editar
+                </button>` : ''}
+                <button class="lista-action-btn lista-btn-del" onclick="confirmarExcluirHistorico('${escapeHtml(b.budgetId)}')" title="Excluir">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                    </svg>
+                    Excluir
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function calcularDescontoEm(budget, subtotal) {
+    if (!budget.desconto || !budget.desconto.ativo || budget.desconto.valor <= 0) return 0;
+    if (budget.desconto.tipo === 'porcentagem') return subtotal * (budget.desconto.valor / 100);
+    return Math.min(budget.desconto.valor, subtotal);
+}
+
+function editarOrcamentoLista(budgetId) {
+    const historico = carregarHistorico();
+    const budget = historico[budgetId];
+    if (!budget) return;
+    state = budget;
+    if (!state.desconto) state.desconto = { ativo: true, tipo: 'porcentagem', valor: 0 };
+    salvarEstado();
+    resetarFormulario();
+    renderizar();
+    fecharListaModal();
+    mostrarToast('Orçamento ' + budgetId + ' carregado para edição.', 'success');
+}
+
+function confirmarExcluirHistorico(budgetId) {
+    mostrarModal(
+        '🗑️',
+        'Excluir Orçamento',
+        'Remover o orçamento ' + budgetId + ' permanentemente?',
+        () => {
+            removerDoHistorico(budgetId);
+            if (state.budgetId === budgetId) {
+                state = criarNovoEstado();
+                salvarEstado();
+                resetarFormulario();
+                renderizar();
+            }
+            const filtro = document.getElementById('lista-search') ? document.getElementById('lista-search').value : '';
+            renderizarLista(filtro);
+            mostrarToast('Orçamento excluído.', 'info');
+        }
+    );
 }
 
 // ============================================================
