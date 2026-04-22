@@ -858,13 +858,14 @@ function renderizarLista(filtro) {
                     </svg>
                     Editar
                 </button>` : ''}
+                ${!isAtivo ? `
                 <button class="lista-action-btn lista-btn-del" onclick="confirmarExcluirHistorico('${escapeHtml(b.budgetId)}')" title="Excluir">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
                         <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                     </svg>
                     Excluir
-                </button>
+                </button>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -890,18 +891,16 @@ function editarOrcamentoLista(budgetId) {
 }
 
 function confirmarExcluirHistorico(budgetId) {
+    if (budgetId === state.budgetId) {
+        mostrarToast('Não é possível excluir o orçamento atual.', 'error');
+        return;
+    }
     mostrarModal(
         '🗑️',
         'Excluir Orçamento',
         'Remover o orçamento ' + budgetId + ' permanentemente?',
         () => {
             removerDoHistorico(budgetId);
-            if (state.budgetId === budgetId) {
-                state = criarNovoEstado();
-                salvarEstado();
-                resetarFormulario();
-                renderizar();
-            }
             const filtro = document.getElementById('lista-search') ? document.getElementById('lista-search').value : '';
             renderizarLista(filtro);
             mostrarToast('Orçamento excluído.', 'info');
