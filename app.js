@@ -9,6 +9,7 @@
 // CONSTANTES & ESTADO GLOBAL
 // ============================================================
 const STORAGE_KEY = 'uni3d_orcamento';
+const MATERIAIS_CONHECIDOS = ['PLA', 'ABS', 'PETG', 'TPU', 'ASA', 'Resina'];
 
 /** @type {{ budgetId: string, createdAt: string, client: {nome: string, whatsapp: string}, items: Array }} */
 let state = criarNovoEstado();
@@ -22,7 +23,8 @@ function criarNovoEstado() {
         budgetId:  gerarBudgetId(),
         createdAt: new Date().toISOString(),
         client:    { nome: '', whatsapp: '' },
-        items:     []
+        items:     [],
+        desconto:  { ativo: false, tipo: 'porcentagem', valor: 0 }
     };
 }
 
@@ -60,7 +62,10 @@ function precarregarLogo() {
 function carregarEstado() {
     try {
         const salvo = localStorage.getItem(STORAGE_KEY);
-        if (salvo) state = JSON.parse(salvo);
+        if (salvo) {
+            state = JSON.parse(salvo);
+            if (!state.desconto) state.desconto = { ativo: false, tipo: 'porcentagem', valor: 0 };
+        }
     } catch (e) {
         console.warn('Não foi possível carregar dados salvos:', e);
     }
@@ -92,9 +97,6 @@ function vincularEventos() {
     document.getElementById('item-form').addEventListener('submit', handleFormSubmit);
     document.getElementById('cancel-edit-btn').addEventListener('click', resetarFormulario);
 
-    // Seleção de material — exibe campo "Outro" se necessário
-    document.getElementById('item-material').addEventListener('change', handleMaterialChange);
-
     // Máscara de preço
     document.getElementById('item-preco').addEventListener('input', handleMascaraPreco);
 
@@ -123,7 +125,14 @@ function vincularEventos() {
         );
     });
 
-    // Modal
+    // Desconto
+    document.getElementById('desconto-ativo').addEventListener('change', handleDescontoAtivo);
+    document.querySelectorAll('input[name="desconto-tipo"]').forEach(r => r.addEventListener('change', handleDescontoTipo));
+    document.getElementById('desconto-valor').addEventListener('input', handleDescontoValor);
+
+    // Inicializa campo de material múltiplo
+    resetarMateriais();
+
     document.getElementById('modal-cancel').addEventListener('click', fecharModal);
     document.getElementById('modal-overlay').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) fecharModal();
@@ -140,24 +149,19 @@ function handleFormSubmit(e) {
     e.preventDefault();
 
     // Coleta de valores
-    const produto      = document.getElementById('item-produto').value.trim();
-    const matSelect    = document.getElementById('item-material').value;
-    const matOutro     = document.getElementById('item-material-outro').value.trim();
-    const cor          = document.getElementById('item-cor').value.trim();
-    const precoRaw     = document.getElementById('item-preco').value;
-    const preco        = parsearPreco(precoRaw);
-    const editId       = document.getElementById('edit-id').value;
-
-    // Material final (pode ser personalizado)
-    const material = matSelect === 'Outro' ? matOutro : matSelect;
+    const produto   = document.getElementById('item-produto').value.trim();
+    const materiais = coletarMateriais();
+    const cor       = document.getElementById('item-cor').value.trim();
+    const precoRaw  = document.getElementById('item-preco').value;
+    const preco     = parsearPreco(precoRaw);
+    const editId    = document.getElementById('edit-id').value;
 
     // Validação
     let erros = [];
-    if (!produto)   erros.push('Produto é obrigatório.');
-    if (!matSelect) erros.push('Material é obrigatório.');
-    if (matSelect === 'Outro' && !matOutro) erros.push('Especifique o material.');
-    if (!cor)       erros.push('Cor é obrigatória.');
-    if (preco <= 0) erros.push('Informe um preço válido.');
+    if (!produto)            erros.push('Produto é obrigatório.');
+    if (materiais.length === 0) erros.push('Selecione pelo menos um material.');
+    if (!cor)                erros.push('Cor é obrigatória.');
+    if (preco <= 0)          erros.push('Informe um preço válido.');
 
     if (erros.length > 0) {
         mostrarToast(erros[0], 'error');
@@ -168,12 +172,12 @@ function handleFormSubmit(e) {
         // Atualizar item existente
         const idx = state.items.findIndex(i => i.id === editId);
         if (idx !== -1) {
-            state.items[idx] = { ...state.items[idx], produto, material, cor, preco };
+            state.items[idx] = { ...state.items[idx], produto, materiais, cor, preco };
         }
         mostrarToast('Item atualizado com sucesso!', 'success');
     } else {
         // Novo item
-        state.items.push({ id: gerarIdItem(), produto, material, cor, preco });
+        state.items.push({ id: gerarIdItem(), produto, materiais, cor, preco });
         mostrarToast('Item adicionado!', 'success');
     }
 
@@ -181,18 +185,6 @@ function handleFormSubmit(e) {
     resetarFormulario();
     renderizarItens();
     atualizarResumo();
-}
-
-function handleMaterialChange(e) {
-    const grupo = document.getElementById('material-outro-group');
-    const input = document.getElementById('item-material-outro');
-    if (e.target.value === 'Outro') {
-        grupo.classList.remove('hidden');
-        input.focus();
-    } else {
-        grupo.classList.add('hidden');
-        input.value = '';
-    }
 }
 
 function handleMascaraPreco(e) {
@@ -227,17 +219,8 @@ function editarItem(id) {
     document.getElementById('item-cor').value     = item.cor;
     document.getElementById('item-preco').value   = formatarPreco(item.preco);
 
-    // Preenche material
-    const materiais = ['PLA', 'ABS', 'PETG', 'TPU', 'ASA', 'Resina'];
-    const select = document.getElementById('item-material');
-    if (materiais.includes(item.material)) {
-        select.value = item.material;
-        document.getElementById('material-outro-group').classList.add('hidden');
-    } else {
-        select.value = 'Outro';
-        document.getElementById('material-outro-group').classList.remove('hidden');
-        document.getElementById('item-material-outro').value = item.material;
-    }
+    // Preenche materiais
+    preencherMateriais(getMateriais(item));
 
     // Atualiza botão e título
     document.getElementById('form-title').textContent = 'Editar Item';
@@ -332,16 +315,10 @@ function exportarPDF() {
 
     // Logo (usa base64 pré-carregado em precarregarLogo)
     if (_logoDataUrl) {
-        const logoH = 18;
+        const logoH = 34;
         const logoW = logoH * _logoRatio;
-        doc.addImage(_logoDataUrl, 'PNG', mL, 12, logoW, logoH);
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.text('Uni3D', mL + logoW + 5, 22);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('Impressão 3D', mL + logoW + 5, 29);
+        const logoY = (42 - logoH) / 2;
+        doc.addImage(_logoDataUrl, 'PNG', mL, logoY, logoW, logoH);
     } else {
         _renderNomeHeader(doc, mL);
     }
@@ -395,7 +372,7 @@ function exportarPDF() {
     const linhas = state.items.map((item, idx) => [
         (idx + 1).toString(),
         item.produto,
-        item.material,
+        getMateriais(item).join(' + '),
         item.cor,
         formatarPreco(item.preco)
     ]);
@@ -423,18 +400,47 @@ function exportarPDF() {
 
     y = doc.lastAutoTable.finalY + 6;
 
-    // ── TOTAL ─────────────────────────────────────────────────
-    const total = state.items.reduce((s, i) => s + i.preco, 0);
-    const boxW = 72;
-    doc.setFillColor(255, 106, 0);      // laranja
-    doc.roundedRect(pageW - mR - boxW, y, boxW, 13, 2.5, 2.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'normal');
+    // ── DESCONTO + TOTAL ──────────────────────────────────────
+    const subtotal      = state.items.reduce((s, i) => s + i.preco, 0);
+    const descontoValor = calcularDesconto(subtotal);
+    const total         = subtotal - descontoValor;
+
+    if (state.desconto.ativo && descontoValor > 0) {
+        const labelDesc = state.desconto.tipo === 'porcentagem'
+            ? `Desconto (${state.desconto.valor}%):`
+            : 'Desconto:';
+
+        doc.setTextColor(71, 85, 105);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text('Subtotal:', pageW - mR - 58, y + 5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatarPreco(subtotal), pageW - mR, y + 5, { align: 'right' });
+
+        doc.setTextColor(220, 38, 38);
+        doc.setFont('helvetica', 'normal');
+        doc.text(labelDesc, pageW - mR - 58, y + 11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`−${formatarPreco(descontoValor)}`, pageW - mR, y + 11, { align: 'right' });
+
+        y += 16;
+    }
+
+    const boxW  = 52;
+    const boxH  = 12;
+    const boxX  = pageW - mR - boxW;
+
+    doc.setTextColor(11, 60, 93);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text('VALOR TOTAL', pageW - mR - boxW + 6, y + 8.5);
+    doc.text('VALOR TOTAL', mL, y + boxH / 2 + 1.5);
+
+    doc.setFillColor(255, 106, 0);
+    doc.roundedRect(boxX, y, boxW, boxH, 2.5, 2.5, 'F');
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(formatarPreco(total), pageW - mR - 4, y + 9, { align: 'right' });
+    doc.text(formatarPreco(total), boxX + boxW / 2, y + boxH / 2 + 2, { align: 'center' });
 
     // ── RODAPÉ (fixo no final da página) ──────────────────────
     doc.setTextColor(160, 174, 192);
@@ -482,6 +488,7 @@ function renderizar() {
     renderizarItens();
     atualizarResumo();
     sincronizarCamposCliente();
+    sincronizarDesconto();
 }
 
 function sincronizarCabecalho() {
@@ -517,7 +524,7 @@ function renderizarItens() {
             <div class="item-body">
                 <div class="item-name" title="${escapeHtml(item.produto)}">${escapeHtml(item.produto)}</div>
                 <div class="item-tags">
-                    <span class="tag">${escapeHtml(item.material)}</span>
+                    ${getMateriais(item).map(m => `<span class="tag">${escapeHtml(m)}</span>`).join('')}
                     <span class="tag tag-cor">${escapeHtml(item.cor)}</span>
                 </div>
                 <div class="item-price">${formatarPreco(item.preco)}</div>
@@ -541,11 +548,103 @@ function renderizarItens() {
     `).join('');
 }
 
+function calcularDesconto(subtotal) {
+    if (!state.desconto.ativo || state.desconto.valor <= 0) return 0;
+    if (state.desconto.tipo === 'porcentagem') return subtotal * (state.desconto.valor / 100);
+    return Math.min(state.desconto.valor, subtotal);
+}
+
 function atualizarResumo() {
-    const total = state.items.reduce((s, i) => s + i.preco, 0);
+    const subtotal      = state.items.reduce((s, i) => s + i.preco, 0);
+    const descontoValor = calcularDesconto(subtotal);
+    const total         = subtotal - descontoValor;
+
     document.getElementById('summary-client').textContent = state.client.nome || '—';
     document.getElementById('summary-count').textContent  = state.items.length;
     document.getElementById('summary-total').textContent  = formatarPreco(total);
+
+    const subtotalRow  = document.getElementById('summary-subtotal-row');
+    const descontoRow  = document.getElementById('summary-desconto-row');
+
+    if (state.desconto.ativo && descontoValor > 0) {
+        subtotalRow.classList.remove('hidden');
+        descontoRow.classList.remove('hidden');
+        document.getElementById('summary-subtotal').textContent = formatarPreco(subtotal);
+        document.getElementById('summary-desconto').textContent = state.desconto.tipo === 'porcentagem'
+            ? `−${state.desconto.valor}% (${formatarPreco(descontoValor)})`
+            : `−${formatarPreco(descontoValor)}`;
+    } else {
+        subtotalRow.classList.add('hidden');
+        descontoRow.classList.add('hidden');
+    }
+}
+
+function sincronizarDesconto() {
+    const d = state.desconto;
+    document.getElementById('desconto-ativo').checked = d.ativo;
+    document.getElementById('desconto-opcoes').classList.toggle('hidden', !d.ativo);
+    document.getElementById('desconto-tipo-pct').checked  = d.tipo === 'porcentagem';
+    document.getElementById('desconto-tipo-fixo').checked = d.tipo === 'fixo';
+    const input = document.getElementById('desconto-valor');
+    const unidade = document.getElementById('desconto-unidade');
+    if (d.tipo === 'porcentagem') {
+        input.placeholder = '0';
+        unidade.textContent = '%';
+        input.value = d.valor > 0 ? String(d.valor) : '';
+    } else {
+        input.placeholder = 'R$ 0,00';
+        unidade.textContent = 'R$';
+        input.value = d.valor > 0 ? formatarPreco(d.valor) : '';
+    }
+}
+
+function handleDescontoAtivo(e) {
+    state.desconto.ativo = e.target.checked;
+    document.getElementById('desconto-opcoes').classList.toggle('hidden', !e.target.checked);
+    if (!e.target.checked) {
+        state.desconto.valor = 0;
+        document.getElementById('desconto-valor').value = '';
+    }
+    salvarEstado();
+    atualizarResumo();
+}
+
+function handleDescontoTipo(e) {
+    state.desconto.tipo  = e.target.value;
+    state.desconto.valor = 0;
+    const input   = document.getElementById('desconto-valor');
+    const unidade = document.getElementById('desconto-unidade');
+    input.value = '';
+    if (e.target.value === 'porcentagem') {
+        input.placeholder   = '0';
+        unidade.textContent = '%';
+    } else {
+        input.placeholder   = 'R$ 0,00';
+        unidade.textContent = 'R$';
+    }
+    salvarEstado();
+    atualizarResumo();
+}
+
+function handleDescontoValor(e) {
+    if (state.desconto.tipo === 'porcentagem') {
+        const raw = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.');
+        const num = parseFloat(raw);
+        state.desconto.valor = isNaN(num) ? 0 : Math.min(Math.max(num, 0), 100);
+        e.target.value = raw;
+    } else {
+        const raw = e.target.value.replace(/\D/g, '');
+        if (!raw) { e.target.value = ''; state.desconto.valor = 0; }
+        else {
+            const num = parseInt(raw, 10) / 100;
+            e.target.value       = formatarPreco(num);
+            state.desconto.valor = num;
+            const len = e.target.value.length;
+            e.target.setSelectionRange(len, len);
+        }
+    }
+    salvarEstado();
+    atualizarResumo();
 }
 
 // ============================================================
@@ -554,7 +653,7 @@ function atualizarResumo() {
 function resetarFormulario() {
     document.getElementById('item-form').reset();
     document.getElementById('edit-id').value = '';
-    document.getElementById('material-outro-group').classList.add('hidden');
+    resetarMateriais();
     document.getElementById('cancel-edit-btn').classList.add('hidden');
     document.getElementById('form-title').textContent = 'Adicionar Item';
     document.getElementById('submit-btn').innerHTML = `
@@ -564,6 +663,108 @@ function resetarFormulario() {
         Adicionar Item
     `;
     document.querySelectorAll('.item-card').forEach(el => el.classList.remove('editing'));
+}
+
+// ============================================================
+// MATERIAL MÚLTIPLO
+// ============================================================
+function _opcoesMaterialHtml(valorSelecionado) {
+    const opts = [...MATERIAIS_CONHECIDOS, 'Outro'];
+    return '<option value="">Selecione o material...</option>' +
+        opts.map(o => `<option value="${o}"${o === valorSelecionado ? ' selected' : ''}>${o === 'Outro' ? 'Outro...' : o}</option>`).join('');
+}
+
+function _appendLinhaMateria(container, isFirst, valor) {
+    const row = document.createElement('div');
+    row.className = 'material-row';
+
+    let selectVal = '';
+    let outroVal  = '';
+    if (valor) {
+        if (MATERIAIS_CONHECIDOS.includes(valor)) {
+            selectVal = valor;
+        } else {
+            selectVal = 'Outro';
+            outroVal  = valor;
+        }
+    }
+
+    row.innerHTML = `
+        <div class="material-row-main">
+            <div class="select-wrap">
+                <select class="material-select">${_opcoesMaterialHtml(selectVal)}</select>
+                <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            ${isFirst
+                ? `<button type="button" class="btn-mat-add" title="Adicionar outro material">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                   </button>`
+                : `<button type="button" class="btn-mat-rem" title="Remover material">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                   </button>`
+            }
+        </div>
+        <div class="material-outro-wrap${selectVal === 'Outro' ? '' : ' hidden'}">
+            <input type="text" class="material-outro-input" placeholder="Ex: Nylon, PVA, HIPS..." value="${outroVal ? escapeHtml(outroVal) : ''}">
+        </div>
+    `;
+
+    const select    = row.querySelector('.material-select');
+    const outroWrap = row.querySelector('.material-outro-wrap');
+    const outroInp  = row.querySelector('.material-outro-input');
+
+    select.addEventListener('change', () => {
+        if (select.value === 'Outro') {
+            outroWrap.classList.remove('hidden');
+            outroInp.focus();
+        } else {
+            outroWrap.classList.add('hidden');
+            outroInp.value = '';
+        }
+    });
+
+    if (isFirst) {
+        row.querySelector('.btn-mat-add').addEventListener('click', () => _appendLinhaMateria(container, false, ''));
+    } else {
+        row.querySelector('.btn-mat-rem').addEventListener('click', () => row.remove());
+    }
+
+    container.appendChild(row);
+}
+
+function resetarMateriais() {
+    const c = document.getElementById('materiais-container');
+    c.innerHTML = '';
+    _appendLinhaMateria(c, true, '');
+}
+
+function preencherMateriais(materiais) {
+    const c = document.getElementById('materiais-container');
+    c.innerHTML = '';
+    const lista = (materiais && materiais.length) ? materiais : [''];
+    lista.forEach((m, i) => _appendLinhaMateria(c, i === 0, m));
+}
+
+function coletarMateriais() {
+    const rows = document.querySelectorAll('#materiais-container .material-row');
+    const result = [];
+    rows.forEach(row => {
+        const sel = row.querySelector('.material-select');
+        const inp = row.querySelector('.material-outro-input');
+        const val = sel.value === 'Outro' ? inp.value.trim() : sel.value;
+        if (val) result.push(val);
+    });
+    return result;
+}
+
+function getMateriais(item) {
+    if (Array.isArray(item.materiais) && item.materiais.length) return item.materiais;
+    if (item.material) return [item.material];
+    return [];
 }
 
 // ============================================================

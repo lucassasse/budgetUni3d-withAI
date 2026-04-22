@@ -86,7 +86,7 @@ body {
 }
 
 .logo {
-    height: 64px;
+    height: 90px;
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
@@ -666,6 +666,140 @@ input.input-error:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
 }
 
 .modal-actions .btn { min-width: 110px; }
+
+/* ============================================================
+   DESCONTO
+   ============================================================ */
+.summary-desconto-row { background: #FEF2F2; }
+.summary-desconto-value { color: var(--danger) !important; }
+
+.desconto-section {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.desconto-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.desconto-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.desconto-opcoes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.desconto-tipo {
+    display: flex;
+    gap: 16px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    user-select: none;
+}
+
+.radio-label input[type="radio"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.desconto-valor-wrap {
+    position: relative;
+}
+
+.desconto-valor-wrap input {
+    padding-right: 36px;
+}
+
+.desconto-unidade {
+    position: absolute;
+    right: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+/* ============================================================
+   MATERIAL MÚLTIPLO
+   ============================================================ */
+.material-row + .material-row { margin-top: 8px; }
+
+.material-row-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.material-row-main .select-wrap { flex: 1; }
+
+.material-outro-wrap { margin-top: 6px; }
+
+.btn-mat-add,
+.btn-mat-rem {
+    flex-shrink: 0;
+    width: 36px;
+    height: 38px;
+    border: none;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+
+.btn-mat-add {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+}
+.btn-mat-add:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-mat-rem {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+.btn-mat-rem:hover {
+    background: var(--danger);
+    color: #fff;
+}
 
 /* ============================================================
    RESPONSIVO

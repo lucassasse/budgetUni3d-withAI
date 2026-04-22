@@ -17,10 +17,6 @@
             <div class="logo-area">
                 <!-- Coloque sua logo como "logo-sem-fundo.png" na mesma pasta deste arquivo -->
                 <img src="logo-sem-fundo.png" alt="Logo Uni3D" class="logo" id="logo-img" onerror="this.style.display='none'">
-                <div class="brand">
-                    <h1 class="brand-name">Uni3D</h1>
-                    <span class="brand-sub">Impressão 3D</span>
-                </div>
             </div>
             <div class="budget-id-area">
                 <span class="budget-label">Orçamento</span>
@@ -76,28 +72,9 @@
                         <input type="text" id="item-produto" placeholder="Ex: Suporte para parede, Miniatura..." autocomplete="off">
                     </div>
 
-                    <div class="form-group">
-                        <label for="item-material">Material <span class="required">*</span></label>
-                        <div class="select-wrap">
-                            <select id="item-material">
-                                <option value="">Selecione o material...</option>
-                                <option value="PLA">PLA</option>
-                                <option value="ABS">ABS</option>
-                                <option value="PETG">PETG</option>
-                                <option value="TPU">TPU</option>
-                                <option value="ASA">ASA</option>
-                                <option value="Resina">Resina</option>
-                                <option value="Outro">Outro...</option>
-                            </select>
-                            <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <div class="form-group hidden" id="material-outro-group">
-                        <label for="item-material-outro">Especifique o material <span class="required">*</span></label>
-                        <input type="text" id="item-material-outro" placeholder="Ex: Nylon, PVA, HIPS...">
+                    <div class="form-group" id="materiais-group">
+                        <label>Material <span class="required">*</span></label>
+                        <div id="materiais-container"></div>
                     </div>
 
                     <div class="form-group">
@@ -167,9 +144,40 @@
                             <span class="summary-label">Itens</span>
                             <strong class="summary-value" id="summary-count">0</strong>
                         </div>
+                        <div class="summary-row hidden" id="summary-subtotal-row">
+                            <span class="summary-label">Subtotal</span>
+                            <strong class="summary-value" id="summary-subtotal">R$ 0,00</strong>
+                        </div>
+                        <div class="summary-row summary-desconto-row hidden" id="summary-desconto-row">
+                            <span class="summary-label">Desconto</span>
+                            <strong class="summary-value summary-desconto-value" id="summary-desconto">—</strong>
+                        </div>
                         <div class="summary-row summary-total-row">
                             <span class="summary-label">Total</span>
                             <strong class="summary-value summary-total-value" id="summary-total">R$ 0,00</strong>
+                        </div>
+                    </div>
+
+                    <div class="desconto-section">
+                        <label class="desconto-toggle">
+                            <input type="checkbox" id="desconto-ativo">
+                            <span>Conceder desconto</span>
+                        </label>
+                        <div class="desconto-opcoes hidden" id="desconto-opcoes">
+                            <div class="desconto-tipo">
+                                <label class="radio-label">
+                                    <input type="radio" name="desconto-tipo" id="desconto-tipo-pct" value="porcentagem" checked>
+                                    <span>Porcentagem %</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="desconto-tipo" id="desconto-tipo-fixo" value="fixo">
+                                    <span>Valor fixo</span>
+                                </label>
+                            </div>
+                            <div class="desconto-valor-wrap">
+                                <input type="text" id="desconto-valor" placeholder="0" inputmode="numeric" autocomplete="off">
+                                <span class="desconto-unidade" id="desconto-unidade">%</span>
+                            </div>
                         </div>
                     </div>
 
