@@ -24,6 +24,7 @@ function criarNovoEstado() {
         budgetId:  gerarBudgetId(),
         createdAt: new Date().toISOString(),
         client:    { nome: '', whatsapp: '' },
+        prazo:     '',
         items:     [],
         desconto:  { ativo: true, tipo: 'porcentagem', valor: 0 }
     };
@@ -67,6 +68,7 @@ function carregarEstado() {
             state = JSON.parse(salvo);
             if (!state.desconto) state.desconto = { ativo: true, tipo: 'porcentagem', valor: 0 };
             state.desconto.ativo = true;
+            if (state.prazo === undefined) state.prazo = '';
         }
     } catch (e) {
         console.warn('Não foi possível carregar dados salvos:', e);
@@ -127,6 +129,12 @@ function vincularEventos() {
     });
 
     document.getElementById('client-whatsapp').addEventListener('input', handleMascaraWhatsApp);
+
+    document.getElementById('client-prazo').addEventListener('input', (e) => {
+        state.prazo = e.target.value;
+        salvarEstado();
+        atualizarResumo();
+    });
 
     // Copiar código do orçamento
     document.getElementById('copy-code-btn').addEventListener('click', copiarCodigo);
@@ -308,12 +316,14 @@ function excluirItem(id) {
 // ============================================================
 function limparDados() {
     state.client   = { nome: '', whatsapp: '' };
+    state.prazo    = '';
     state.items    = [];
     state.desconto = { ativo: true, tipo: 'porcentagem', valor: 0 };
     salvarEstado();
     resetarFormulario();
     document.getElementById('client-name').value     = '';
     document.getElementById('client-whatsapp').value = '';
+    document.getElementById('client-prazo').value    = '';
     renderizar();
     mostrarToast('Dados limpos. Código do orçamento mantido.', 'info');
 }
@@ -399,10 +409,14 @@ function gerarPDF(budget) {
     let y = 52;
 
     // ── DADOS DO CLIENTE ─────────────────────────────────────
+    const hasWhatsapp = !!budget.client.whatsapp;
+    const hasPrazo    = !!(budget.prazo);
+    const clientBoxH  = 18 + (hasWhatsapp ? 8 : 0) + (hasPrazo ? 8 : 0);
+
     doc.setFillColor(208, 235, 250);
-    doc.roundedRect(mL, y, cW, budget.client.whatsapp ? 26 : 18, 3, 3, 'F');
+    doc.roundedRect(mL, y, cW, clientBoxH, 3, 3, 'F');
     doc.setDrawColor(47, 164, 231);
-    doc.roundedRect(mL, y, cW, budget.client.whatsapp ? 26 : 18, 3, 3, 'S');
+    doc.roundedRect(mL, y, cW, clientBoxH, 3, 3, 'S');
 
     doc.setTextColor(11, 60, 93);
     doc.setFont('helvetica', 'bold');
@@ -414,14 +428,24 @@ function gerarPDF(budget) {
     doc.setFontSize(11);
     doc.text(budget.client.nome, mL + 6, y + 13);
 
-    if (budget.client.whatsapp) {
+    let clientLineY = 13;
+    if (hasWhatsapp) {
+        clientLineY += 8;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(71, 85, 105);
-        doc.text('WhatsApp: ' + budget.client.whatsapp, mL + 6, y + 20);
+        doc.text('WhatsApp: ' + budget.client.whatsapp, mL + 6, y + clientLineY);
+    }
+    if (hasPrazo) {
+        clientLineY += 8;
+        const prazoFormatado = new Date(budget.prazo + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        doc.text('Prazo de entrega: ' + prazoFormatado, mL + 6, y + clientLineY);
     }
 
-    y += (budget.client.whatsapp ? 26 : 18) + 10;
+    y += clientBoxH + 10;
 
     // ── TABELA DE ITENS ───────────────────────────────────────
     doc.setTextColor(11, 60, 93);
@@ -560,6 +584,7 @@ function sincronizarCabecalho() {
 function sincronizarCamposCliente() {
     document.getElementById('client-name').value     = state.client.nome;
     document.getElementById('client-whatsapp').value = state.client.whatsapp;
+    document.getElementById('client-prazo').value    = state.prazo || '';
 }
 
 function renderizarItens() {
@@ -624,6 +649,12 @@ function atualizarResumo() {
     document.getElementById('summary-client').textContent = nome
         ? (nome.length > 15 ? nome.slice(0, 15) + '…' : nome)
         : '—';
+
+    const prazo = state.prazo;
+    document.getElementById('summary-prazo').textContent = prazo
+        ? new Date(prazo + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '—';
+
     document.getElementById('summary-count').textContent  = state.items.length;
     document.getElementById('summary-total').textContent  = formatarPreco(total);
 

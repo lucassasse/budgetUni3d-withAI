@@ -53,6 +53,12 @@
                     <input type="tel" id="client-whatsapp" placeholder="(00) 00000-0000" maxlength="16" inputmode="numeric">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="client-prazo">Prazo de Entrega <span class="optional">(opcional)</span></label>
+                    <input type="date" id="client-prazo">
+                </div>
+            </div>
         </section>
 
         <!-- GRID PRINCIPAL: Formulário | Lista + Resumo -->
@@ -145,6 +151,10 @@
                         <div class="summary-row">
                             <span class="summary-label">Cliente</span>
                             <strong class="summary-value" id="summary-client">—</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Prazo</span>
+                            <strong class="summary-value" id="summary-prazo">—</strong>
                         </div>
                         <div class="summary-row">
                             <span class="summary-label">Itens</span>
