@@ -203,6 +203,8 @@ function handleFormSubmit(e) {
     const cor       = document.getElementById('item-cor').value.trim();
     const tamanhoRaw = document.getElementById('item-tamanho').value;
     const tamanho   = tamanhoRaw !== '' ? parseFloat(tamanhoRaw) : null;
+    const quantidadeRaw = document.getElementById('item-quantidade').value;
+    const quantidade = parseInt(quantidadeRaw, 10);
     const precoRaw  = document.getElementById('item-preco').value;
     const preco     = parsearPreco(precoRaw);
     const editId    = document.getElementById('edit-id').value;
@@ -213,6 +215,7 @@ function handleFormSubmit(e) {
     if (materiais.length === 0) erros.push('Selecione pelo menos um material.');
     if (!cor)                erros.push('Cor é obrigatória.');
     if (tamanho !== null && (isNaN(tamanho) || tamanho < 0)) erros.push('Tamanho inválido.');
+    if (isNaN(quantidade) || quantidade < 1) erros.push('Informe uma quantidade válida (mínimo 1).');
     if (preco <= 0)          erros.push('Informe um preço válido.');
 
     if (erros.length > 0) {
@@ -224,12 +227,12 @@ function handleFormSubmit(e) {
         // Atualizar item existente
         const idx = state.items.findIndex(i => i.id === editId);
         if (idx !== -1) {
-            state.items[idx] = { ...state.items[idx], produto, materiais, cor, tamanho, preco };
+            state.items[idx] = { ...state.items[idx], produto, materiais, cor, tamanho, quantidade, preco };
         }
         mostrarToast('Item atualizado com sucesso!', 'success');
     } else {
         // Novo item
-        state.items.push({ id: gerarIdItem(), produto, materiais, cor, tamanho, preco });
+        state.items.push({ id: gerarIdItem(), produto, materiais, cor, tamanho, quantidade, preco });
         mostrarToast('Item adicionado!', 'success');
     }
 
@@ -266,11 +269,12 @@ function editarItem(id) {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
 
-    document.getElementById('edit-id').value       = item.id;
-    document.getElementById('item-produto').value  = item.produto;
-    document.getElementById('item-cor').value      = item.cor;
-    document.getElementById('item-tamanho').value  = item.tamanho != null ? item.tamanho : '';
-    document.getElementById('item-preco').value    = formatarPreco(item.preco);
+    document.getElementById('edit-id').value           = item.id;
+    document.getElementById('item-produto').value      = item.produto;
+    document.getElementById('item-cor').value          = item.cor;
+    document.getElementById('item-tamanho').value      = item.tamanho != null ? item.tamanho : '';
+    document.getElementById('item-quantidade').value   = item.quantidade != null ? item.quantidade : 1;
+    document.getElementById('item-preco').value        = formatarPreco(item.preco);
 
     // Preenche materiais
     preencherMateriais(getMateriais(item));
@@ -329,7 +333,7 @@ function limparDados() {
 }
 
 function limparOrcamento() {
-    const subtotal = state.items.reduce((s, i) => s + i.preco, 0);
+    const subtotal = state.items.reduce((s, i) => s + getPrecoTotal(i), 0);
     if (subtotal === 0) removerDoHistorico(state.budgetId);
     state = criarNovoEstado();
     salvarEstado();
@@ -454,18 +458,24 @@ function gerarPDF(budget) {
     doc.text('ITENS DO ORÇAMENTO', mL, y);
     y += 4;
 
-    const linhas = budget.items.map((item, idx) => [
-        (idx + 1).toString(),
-        item.produto,
-        getMateriais(item).join(' + '),
-        item.cor,
-        item.tamanho != null ? item.tamanho + ' cm' : '—',
-        formatarPreco(item.preco)
-    ]);
+    const linhas = budget.items.map((item, idx) => {
+        const qtd = item.quantidade || 1;
+        const total = item.preco * qtd;
+        return [
+            (idx + 1).toString(),
+            item.produto,
+            getMateriais(item).join(' + '),
+            item.cor,
+            item.tamanho != null ? item.tamanho + ' cm' : '—',
+            qtd.toString(),
+            formatarPreco(item.preco),
+            formatarPreco(total)
+        ];
+    });
 
     doc.autoTable({
         startY: y,
-        head: [['#', 'Produto', 'Material', 'Cor', 'Tamanho', 'Preço']],
+        head: [['#', 'Produto', 'Material', 'Cor', 'Tamanho', 'Qtd', 'Unitário', 'Total']],
         body: linhas,
         margin: { left: mL, right: mR },
         styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
@@ -478,17 +488,19 @@ function gerarPDF(budget) {
         alternateRowStyles: { fillColor: [240, 249, 255] },
         columnStyles: {
             0: { cellWidth: 9,  halign: 'center', fontStyle: 'bold' },
-            2: { cellWidth: 22 },
-            3: { cellWidth: 22 },
-            4: { cellWidth: 20, halign: 'center' },
-            5: { cellWidth: 28, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
+            2: { cellWidth: 20 },
+            3: { cellWidth: 20 },
+            4: { cellWidth: 18, halign: 'center' },
+            5: { cellWidth: 10, halign: 'center' },
+            6: { cellWidth: 24, halign: 'right' },
+            7: { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
         }
     });
 
     y = doc.lastAutoTable.finalY + 6;
 
     // ── DESCONTO + TOTAL ──────────────────────────────────────
-    const subtotal      = budget.items.reduce((s, i) => s + i.preco, 0);
+    const subtotal      = budget.items.reduce((s, i) => s + (i.preco * (i.quantidade || 1)), 0);
     const descontoValor = calcularDescontoEm(budget, subtotal);
     const total         = subtotal - descontoValor;
 
@@ -612,8 +624,14 @@ function renderizarItens() {
                     ${getMateriais(item).map(m => `<span class="tag">${escapeHtml(m)}</span>`).join('')}
                     <span class="tag tag-cor">${escapeHtml(item.cor)}</span>
                     ${item.tamanho != null ? `<span class="tag tag-tamanho">${item.tamanho} cm</span>` : ''}
+                    ${(item.quantidade != null && item.quantidade > 1) ? `<span class="tag tag-qtd">×${item.quantidade}</span>` : ''}
                 </div>
-                <div class="item-price">${formatarPreco(item.preco)}</div>
+                <div class="item-price">
+                    ${(item.quantidade != null && item.quantidade > 1)
+                        ? `<span class="item-price-unit">${formatarPreco(item.preco)} × ${item.quantidade}</span> ${formatarPreco(item.preco * item.quantidade)}`
+                        : formatarPreco(item.preco)
+                    }
+                </div>
             </div>
             <div class="item-btns">
                 <button class="btn-icon btn-edit-item" onclick="editarItem('${item.id}')" title="Editar item">
@@ -634,6 +652,10 @@ function renderizarItens() {
     `).join('');
 }
 
+function getPrecoTotal(item) {
+    return item.preco * (item.quantidade || 1);
+}
+
 function calcularDesconto(subtotal) {
     if (!state.desconto.ativo || state.desconto.valor <= 0) return 0;
     if (state.desconto.tipo === 'porcentagem') return subtotal * (state.desconto.valor / 100);
@@ -641,7 +663,7 @@ function calcularDesconto(subtotal) {
 }
 
 function atualizarResumo() {
-    const subtotal      = state.items.reduce((s, i) => s + i.preco, 0);
+    const subtotal      = state.items.reduce((s, i) => s + getPrecoTotal(i), 0);
     const descontoValor = calcularDesconto(subtotal);
     const total         = subtotal - descontoValor;
 
@@ -883,7 +905,7 @@ function renderizarLista(filtro) {
 
     body.innerHTML = ids.map(id => {
         const b       = historico[id];
-        const subtotal = (b.items || []).reduce((s, i) => s + i.preco, 0);
+        const subtotal = (b.items || []).reduce((s, i) => s + (i.preco * (i.quantidade || 1)), 0);
         const total    = subtotal - calcularDescontoEm(b, subtotal);
         const isAtivo  = b.budgetId === state.budgetId;
         const dtStr    = b.createdAt
