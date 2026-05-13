@@ -490,8 +490,8 @@ function gerarPDF(budget) {
             0: { cellWidth: 9,  halign: 'center', fontStyle: 'bold' },
             2: { cellWidth: 20 },
             3: { cellWidth: 20 },
-            4: { cellWidth: 18, halign: 'center' },
-            5: { cellWidth: 10, halign: 'center' },
+            4: { cellWidth: 22, halign: 'center' },
+            5: { cellWidth: 14, halign: 'center' },
             6: { cellWidth: 24, halign: 'right' },
             7: { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [11, 60, 93] }
         }
